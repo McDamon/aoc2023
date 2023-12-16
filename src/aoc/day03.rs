@@ -1,8 +1,9 @@
-// https://adventofcode.com/2023/day/2
+// https://adventofcode.com/2023/day/3
 
 use std::collections::VecDeque;
 
 use grid::Grid;
+use multimap::MultiMap;
 
 use super::utils::get_lines;
 
@@ -10,6 +11,7 @@ use super::utils::get_lines;
 struct SchematicEntry {
     digit: Option<u32>,
     is_symbol: bool,
+    is_gear: bool,
 }
 
 #[derive(Debug)]
@@ -38,14 +40,22 @@ fn parse_engine_schematic(engine_schematic_lines: Vec<String>) -> Grid<Schematic
                 '0'..='9' => engine_schematic_entries.push(SchematicEntry {
                     digit: engine_schematic_entry.to_digit(10),
                     is_symbol: false,
+                    is_gear: false,
                 }),
                 '.' => engine_schematic_entries.push(SchematicEntry {
                     digit: None,
                     is_symbol: false,
+                    is_gear: false,
+                }),
+                '*' => engine_schematic_entries.push(SchematicEntry {
+                    digit: None,
+                    is_symbol: false,
+                    is_gear: true,
                 }),
                 _ => engine_schematic_entries.push(SchematicEntry {
                     digit: None,
                     is_symbol: true,
+                    is_gear: false,
                 }),
             }
         }
@@ -69,7 +79,6 @@ fn get_sum_part_nums(input_file: &str) -> u32 {
             None => {
                 let num_to_add = num_queue.iter().fold(0, |acc, elem| acc * 10 + elem);
                 if num_to_add > 0 && adj_sym_count > 0 {
-                    println!("{:?}", num_to_add);
                     sum_part_nums += num_to_add;
                     adj_sym_count = 0;
                 }
@@ -98,6 +107,73 @@ fn num_adj_sym(row: i32, col: i32, engine_schematic: &Grid<SchematicEntry>) -> u
     num_adj_sym
 }
 
+#[derive(Debug, Default)]
+struct GearEntry {
+    gear: u32,
+    adj_stars: Vec<(usize, usize)>,
+}
+
+fn get_sum_gear_ratios(input_file: &str) -> u32 {
+    let mut sum_gear_ratios: u32 = 0;
+    let mut num_queue = VecDeque::<u32>::new();
+    let mut num_adj_stars = Vec::<(usize, usize)>::new();
+    let mut gear_entries: MultiMap<(usize, usize), u32> = MultiMap::new();
+
+    let input = parse_input(input_file);
+    for ((row, col), entry) in input.engine_schematic.indexed_iter() {
+        match entry.digit {
+            Some(digit) => {
+                num_adj_stars.append(&mut add_adj_stars(
+                    row as i32,
+                    col as i32,
+                    &input.engine_schematic,
+                ));
+                num_queue.push_back(digit);
+            }
+            None => {
+                let num_to_add = num_queue.iter().fold(0, |acc, elem| acc * 10 + elem);
+                num_adj_stars.dedup();
+                if num_to_add > 0 {
+                    for entry in num_adj_stars.iter() {
+                        gear_entries.insert(*entry, num_to_add);
+                    }
+                    num_adj_stars.clear();
+                }
+                num_queue.clear();
+            }
+        }
+    }
+    println!("{:?}", gear_entries);
+    for (_, values) in gear_entries.iter_all() {
+        if values.len() == 2 {
+            sum_gear_ratios += values[0] * values[1]
+        }
+    }
+    sum_gear_ratios
+}
+
+fn add_adj_stars(
+    row: i32,
+    col: i32,
+    engine_schematic: &Grid<SchematicEntry>,
+) -> Vec<(usize, usize)> {
+    let mut num = Vec::<(usize, usize)>::new();
+    for i in (row - 1)..(row + 2) {
+        for j in (col - 1)..(col + 2) {
+            let entry = engine_schematic.get(i as usize, j as usize);
+            match entry {
+                Some(entry) => {
+                    if entry.is_gear {
+                        num.push((i as usize, j as usize));
+                    }
+                }
+                None => (),
+            };
+        }
+    }
+    num
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -115,5 +191,15 @@ mod tests {
     #[test]
     fn test_get_sum_part_nums() {
         assert_eq!(521601, get_sum_part_nums("input/day03.txt"));
+    }
+
+    #[test]
+    fn test_get_sum_gear_ratios_test01() {
+        assert_eq!(467835, get_sum_gear_ratios("input/day03_test01.txt"));
+    }
+
+    #[test]
+    fn test_get_sum_gear_ratios() {
+        assert_eq!(80694070, get_sum_gear_ratios("input/day03.txt"));
     }
 }
