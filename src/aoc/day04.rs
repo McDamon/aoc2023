@@ -86,6 +86,49 @@ fn get_scratchcard_score(input_file: &str) -> u32 {
     sum_scratchcard_points
 }
 
+fn get_total_scratchcards(input_file: &str) -> u32 {
+    let input = parse_input(input_file);
+
+    let mut total_scratchcards: u32 = input.games.len() as u32;
+
+    total_scratchcards +=
+        get_total_scratchcards_rec(input.games.keys().cloned().collect(), &input.games);
+
+    total_scratchcards
+}
+
+fn get_total_scratchcards_rec(game_ids: Vec<u32>, all_games: &HashMap<u32, Game>) -> u32 {
+    let mut sorted_game_ids = game_ids.clone();
+    sorted_game_ids.sort();
+    //println!("get_total_scratchcards_rec");
+    let mut total_scratchcards: u32 = 0;
+    for &game_id in &sorted_game_ids {
+        //println!("game_id: {game_id}");
+        if let Some(game) = all_games.get(&game_id) {
+            let winning_nums = num_winning_nums(game);
+
+            //println!("winning_nums: {winning_nums}");
+            let won_game_ids: Vec<u32> = ((game_id + 1)..(game_id + 1 + winning_nums)).collect();
+            if won_game_ids.len() > 0 {
+                //println!("won_game_ids: {:?}", won_game_ids);
+                total_scratchcards += won_game_ids.len() as u32;
+                total_scratchcards += get_total_scratchcards_rec(won_game_ids, all_games);
+            }
+        }
+    }
+    total_scratchcards
+}
+
+fn num_winning_nums(game: &Game) -> u32 {
+    let mut winning_nums: u32 = 0;
+    for num in &game.nums {
+        if game.winning_nums.contains(&num) {
+            winning_nums += 1;
+        }
+    }
+    winning_nums
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -98,5 +141,15 @@ mod tests {
     #[test]
     fn test_get_scratchcard_score() {
         assert_eq!(20667, get_scratchcard_score("input/day04.txt"));
+    }
+
+    #[test]
+    fn test_get_total_scratchcards_test01() {
+        assert_eq!(30, get_total_scratchcards("input/day04_test01.txt"));
+    }
+
+    #[test]
+    fn test_get_total_scratchcards() {
+        assert_eq!(5833065, get_total_scratchcards("input/day04.txt"));
     }
 }
