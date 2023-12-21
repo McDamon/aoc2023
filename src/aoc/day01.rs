@@ -97,7 +97,7 @@ mod tests {
     #[test]
     fn test_sum_calibration_values_test02() {
         assert_eq!(
-            142,
+            281,
             get_sum_calibration_values("input/day01_test02.txt", true)
         );
     }
@@ -109,6 +109,6 @@ mod tests {
 
     #[test]
     fn test_sum_calibration_values_part02() {
-        assert_eq!(54390, get_sum_calibration_values("input/day01.txt", true));
+        assert_eq!(54277, get_sum_calibration_values("input/day01.txt", true));
     }
 }

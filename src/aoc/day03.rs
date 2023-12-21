@@ -19,19 +19,22 @@ struct Input {
     engine_schematic: Grid<SchematicEntry>,
 }
 
-fn parse_input(input_file: &str) -> Input {
+fn parse_input(input_file: &str, use_gear: bool) -> Input {
     let lines = get_lines(input_file);
 
     let mut iter = lines.split(|e| e.is_empty());
 
     let input = Input {
-        engine_schematic: parse_engine_schematic(iter.next().unwrap().to_owned()),
+        engine_schematic: parse_engine_schematic(iter.next().unwrap().to_owned(), use_gear),
     };
 
     input
 }
 
-fn parse_engine_schematic(engine_schematic_lines: Vec<String>) -> Grid<SchematicEntry> {
+fn parse_engine_schematic(
+    engine_schematic_lines: Vec<String>,
+    use_gear: bool,
+) -> Grid<SchematicEntry> {
     let mut engine_schematic = Grid::new(0, 0);
     for engine_schematic_line in engine_schematic_lines.into_iter() {
         let mut engine_schematic_entries: Vec<SchematicEntry> = Vec::new();
@@ -47,11 +50,22 @@ fn parse_engine_schematic(engine_schematic_lines: Vec<String>) -> Grid<Schematic
                     is_symbol: false,
                     is_gear: false,
                 }),
-                '*' => engine_schematic_entries.push(SchematicEntry {
-                    digit: None,
-                    is_symbol: false,
-                    is_gear: true,
-                }),
+                '*' => {
+                    if use_gear == true {
+                        engine_schematic_entries.push(SchematicEntry {
+                            digit: None,
+                            is_symbol: false,
+                            is_gear: true,
+                        })
+                    }
+                    else {
+                        engine_schematic_entries.push(SchematicEntry {
+                            digit: None,
+                            is_symbol: true,
+                            is_gear: false,
+                        })
+                    }
+                }
                 _ => engine_schematic_entries.push(SchematicEntry {
                     digit: None,
                     is_symbol: true,
@@ -69,7 +83,7 @@ fn get_sum_part_nums(input_file: &str) -> u32 {
     let mut num_queue = VecDeque::<u32>::new();
     let mut adj_sym_count: u32 = 0;
 
-    let input = parse_input(input_file);
+    let input = parse_input(input_file, false);
     for ((row, col), entry) in input.engine_schematic.indexed_iter() {
         match entry.digit {
             Some(digit) => {
@@ -119,7 +133,7 @@ fn get_sum_gear_ratios(input_file: &str) -> u32 {
     let mut num_adj_stars = Vec::<(usize, usize)>::new();
     let mut gear_entries: MultiMap<(usize, usize), u32> = MultiMap::new();
 
-    let input = parse_input(input_file);
+    let input = parse_input(input_file, true);
     for ((row, col), entry) in input.engine_schematic.indexed_iter() {
         match entry.digit {
             Some(digit) => {
