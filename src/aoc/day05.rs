@@ -135,14 +135,17 @@ fn parse_almanac(lines: Vec<String>) -> Almanac {
 }
 
 fn create_ranges(nums: (u32, u32, u32)) -> HashMap<u32, u32> {
+    println!("Creating range {} {} {}", nums.0, nums.1, nums.2);  
+
     let mut ranges: HashMap<u32, u32> = HashMap::new();
 
-    let sources = nums.1..(nums.1 + nums.2);
-    let dests = nums.0..(nums.0 + nums.2);
-    for (source, dest) in sources.into_iter().zip(dests.into_iter()) {
-        ranges.insert(source, dest);
+    let sources: Vec<u32> = (nums.1..(nums.1 + nums.2)).collect();
+    let dests: Vec<u32>= (nums.0..(nums.0 + nums.2)).collect();
+    for (source, dest) in sources.iter().zip(dests.iter()) {
+        if !ranges.contains_key(source) {
+            ranges.insert(*source, *dest);
+        }
     }
-
     ranges
 }
 
