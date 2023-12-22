@@ -24,7 +24,7 @@ struct Almanac {
     water_to_light: Vec<(u64, u64, u64)>,
     light_to_temperature: Vec<(u64, u64, u64)>,
     temperature_to_humidity: Vec<(u64, u64, u64)>,
-    humidity_to_location: Vec<(u64, u64, u64)>
+    humidity_to_location: Vec<(u64, u64, u64)>,
 }
 
 #[derive(Debug)]
@@ -132,12 +132,27 @@ fn parse_almanac(lines: Vec<String>) -> Almanac {
     almanac
 }
 
-fn get_lowest_location(input_file: &str) -> u64 {
+fn get_lowest_location(input_file: &str, seeds_as_ranges: bool) -> u64 {
     let mut locations: Vec<u64> = Vec::new();
 
     let input = parse_input(input_file);
 
-    for seed in input.almanac.seeds {
+    let mut seeds: Vec<u64> = vec![];
+
+    if seeds_as_ranges {
+        input
+            .almanac
+            .seeds
+            .chunks(2)
+            .for_each(|range| {
+                let range = range[0]..(range[0] + range[1]);
+                seeds.append(&mut range.collect_vec());
+            });
+    } else {
+        seeds = input.almanac.seeds;
+    }
+
+    for seed in seeds {
         let soil_lookup;
         match get_destinations(seed, &input.almanac.seed_to_soil) {
             Some(lookup_val) => soil_lookup = lookup_val,
@@ -148,31 +163,31 @@ fn get_lowest_location(input_file: &str) -> u64 {
         match get_destinations(soil_lookup, &input.almanac.soil_to_fertilizer) {
             Some(lookup_val) => fertilizer_lookup = lookup_val,
             _ => fertilizer_lookup = soil_lookup,
-        }    
-    
+        }
+
         let water_lookup;
         match get_destinations(fertilizer_lookup, &input.almanac.fertilizer_to_water) {
             Some(lookup_val) => water_lookup = lookup_val,
             _ => water_lookup = fertilizer_lookup,
-        }   
+        }
 
         let light_lookup;
         match get_destinations(water_lookup, &input.almanac.water_to_light) {
             Some(lookup_val) => light_lookup = lookup_val,
             _ => light_lookup = water_lookup,
-        }   
+        }
 
         let temperature_lookup;
         match get_destinations(light_lookup, &input.almanac.light_to_temperature) {
             Some(lookup_val) => temperature_lookup = lookup_val,
             _ => temperature_lookup = light_lookup,
-        }   
+        }
 
         let humidity_lookup;
         match get_destinations(temperature_lookup, &input.almanac.temperature_to_humidity) {
             Some(lookup_val) => humidity_lookup = lookup_val,
             _ => humidity_lookup = temperature_lookup,
-        } 
+        }
 
         let location_lookup;
         match get_destinations(humidity_lookup, &input.almanac.humidity_to_location) {
@@ -235,7 +250,7 @@ mod tests {
         let range = vec![(50, 98, 2), (52, 50, 48)];
         assert_eq!(Some(14), get_destinations(14, &range));
     }
-    
+
     #[test]
     fn test_get_destinations_test03() {
         let range = vec![(50, 98, 2), (52, 50, 48)];
@@ -250,16 +265,26 @@ mod tests {
 
     #[test]
     fn test_get_lowest_location_test01() {
-        assert_eq!(35, get_lowest_location("input/day05_test01.txt"));
+        assert_eq!(35, get_lowest_location("input/day05_test01.txt", false));
     }
 
     #[test]
     fn test_get_lowest_location_test02() {
-        assert_eq!(13, get_lowest_location("input/day05_test02.txt"));
+        assert_eq!(13, get_lowest_location("input/day05_test02.txt", false));
     }
 
     #[test]
     fn test_get_lowest_location_score() {
-        assert_eq!(388071289, get_lowest_location("input/day05.txt"));
+        assert_eq!(388071289, get_lowest_location("input/day05.txt", false));
+    }
+
+    #[test]
+    fn test_get_lowest_location_seeds_as_ranges_test01() {
+        assert_eq!(46, get_lowest_location("input/day05_test01.txt", true));
+    }
+
+    #[test]
+    fn test_get_lowest_location_seeds_as_ranges() {
+        assert_eq!(0, get_lowest_location("input/day05.txt", true));
     }
 }
