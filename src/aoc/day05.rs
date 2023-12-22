@@ -1,6 +1,7 @@
 // https://adventofcode.com/2023/day/4
 
 use itertools::Itertools;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 use super::utils::get_lines;
 
@@ -133,7 +134,7 @@ fn parse_almanac(lines: Vec<String>) -> Almanac {
 }
 
 fn get_lowest_location(input_file: &str, seeds_as_ranges: bool) -> u64 {
-    let mut locations: Vec<u64> = Vec::new();
+    //rayon::ThreadPoolBuilder::new().num_threads(8).build_global().unwrap();
 
     let input = parse_input(input_file);
 
@@ -152,11 +153,11 @@ fn get_lowest_location(input_file: &str, seeds_as_ranges: bool) -> u64 {
         seeds = input.almanac.seeds;
     }
 
-    for seed in seeds {
+    let locations: Vec<_> = seeds.par_iter().map(|seed| {
         let soil_lookup;
-        match get_destinations(seed, &input.almanac.seed_to_soil) {
+        match get_destinations(*seed, &input.almanac.seed_to_soil) {
             Some(lookup_val) => soil_lookup = lookup_val,
-            _ => soil_lookup = seed,
+            _ => soil_lookup = *seed,
         }
 
         let fertilizer_lookup;
@@ -195,8 +196,8 @@ fn get_lowest_location(input_file: &str, seeds_as_ranges: bool) -> u64 {
             _ => location_lookup = humidity_lookup,
         }
 
-        locations.push(location_lookup);
-    }
+        location_lookup
+    }).collect();
 
     *locations.iter().min().unwrap()
 }
