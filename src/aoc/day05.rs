@@ -134,8 +134,6 @@ fn parse_almanac(lines: Vec<String>) -> Almanac {
 }
 
 fn get_lowest_location(input_file: &str, seeds_as_ranges: bool) -> u64 {
-    //rayon::ThreadPoolBuilder::new().num_threads(8).build_global().unwrap();
-
     let input = parse_input(input_file);
 
     let mut seeds: Vec<u64> = vec![];
@@ -286,6 +284,6 @@ mod tests {
 
     #[test]
     fn test_get_lowest_location_seeds_as_ranges() {
-        assert_eq!(0, get_lowest_location("input/day05.txt", true));
+        assert_eq!(84206669, get_lowest_location("input/day05.txt", true));
     }
 }
