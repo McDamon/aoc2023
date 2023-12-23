@@ -19,11 +19,9 @@ fn parse_input(input_file: &str) -> Input {
 
     let mut iter = lines.split(|e| e.is_empty());
 
-    let input = Input {
+    Input {
         games: parse_games(iter.next().unwrap().to_owned()),
-    };
-
-    input
+    }
 }
 
 fn parse_games(games_lines: Vec<String>) -> Vec<(u32, Vec<CubeCount>)> {

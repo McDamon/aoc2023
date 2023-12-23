@@ -49,7 +49,7 @@ fn get_digit(line: &str, digits: &mut Vec<u32>, digits_can_be_text: bool) {
     }
 
     match line.chars().next() {
-        Some(num) if num.is_digit(10) => {
+        Some(num) if num.is_ascii_digit() => {
             digits.push(num.to_digit(10).unwrap());
             get_digit(&line[1..], digits, digits_can_be_text);
         }

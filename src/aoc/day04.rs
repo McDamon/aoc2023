@@ -20,11 +20,9 @@ struct Input {
 fn parse_input(input_file: &str) -> Input {
     let lines = get_lines(input_file);
 
-    let input = Input {
+    Input {
         games: parse_games(lines),
-    };
-
-    input
+    }
 }
 
 fn parse_games(game_lines: Vec<String>) -> HashMap<u32, Game> {
@@ -39,23 +37,23 @@ fn parse_games(game_lines: Vec<String>) -> HashMap<u32, Game> {
         assert!(game_line_parts.len() == 3);
 
         let card_num: Vec<u32> = RE_GAME
-            .find_iter(&game_line_parts[0])
+            .find_iter(game_line_parts[0])
             .map(|m| m.as_str().parse::<u32>().unwrap())
             .collect();
 
         let winning_nums: Vec<u32> = RE_GAME
-            .find_iter(&game_line_parts[1])
+            .find_iter(game_line_parts[1])
             .map(|m| m.as_str().parse::<u32>().unwrap())
             .collect();
 
         let nums: Vec<u32> = RE_GAME
-            .find_iter(&game_line_parts[2])
+            .find_iter(game_line_parts[2])
             .map(|m| m.as_str().parse::<u32>().unwrap())
             .collect();
 
         let game = Game {
-            winning_nums: winning_nums,
-            nums: nums,
+            winning_nums,
+            nums,
         };
 
         games.insert(*card_num.first().unwrap(), game);
@@ -109,7 +107,7 @@ fn get_total_scratchcards_rec(game_ids: Vec<u32>, all_games: &HashMap<u32, Game>
 
             //println!("winning_nums: {winning_nums}");
             let won_game_ids: Vec<u32> = ((game_id + 1)..(game_id + 1 + winning_nums)).collect();
-            if won_game_ids.len() > 0 {
+            if !won_game_ids.is_empty() {
                 //println!("won_game_ids: {:?}", won_game_ids);
                 total_scratchcards += won_game_ids.len() as u32;
                 total_scratchcards += get_total_scratchcards_rec(won_game_ids, all_games);
@@ -122,7 +120,7 @@ fn get_total_scratchcards_rec(game_ids: Vec<u32>, all_games: &HashMap<u32, Game>
 fn num_winning_nums(game: &Game) -> u32 {
     let mut winning_nums: u32 = 0;
     for num in &game.nums {
-        if game.winning_nums.contains(&num) {
+        if game.winning_nums.contains(num) {
             winning_nums += 1;
         }
     }

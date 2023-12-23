@@ -53,6 +53,7 @@
           '';
           buildInputs = nonRustDeps;
           nativeBuildInputs = with pkgs; [
+            clippy
             just
             rust-toolchain
             lldb

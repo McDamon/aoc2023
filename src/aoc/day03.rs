@@ -24,11 +24,9 @@ fn parse_input(input_file: &str, use_gear: bool) -> Input {
 
     let mut iter = lines.split(|e| e.is_empty());
 
-    let input = Input {
+    Input {
         engine_schematic: parse_engine_schematic(iter.next().unwrap().to_owned(), use_gear),
-    };
-
-    input
+    }
 }
 
 fn parse_engine_schematic(
@@ -51,7 +49,7 @@ fn parse_engine_schematic(
                     is_gear: false,
                 }),
                 '*' => {
-                    if use_gear == true {
+                    if use_gear {
                         engine_schematic_entries.push(SchematicEntry {
                             digit: None,
                             is_symbol: false,
@@ -108,13 +106,10 @@ fn num_adj_sym(row: i32, col: i32, engine_schematic: &Grid<SchematicEntry>) -> u
     for i in (row - 1)..(row + 2) {
         for j in (col - 1)..(col + 2) {
             let entry = engine_schematic.get(i as usize, j as usize);
-            match entry {
-                Some(entry) => {
-                    if entry.is_symbol {
-                        num_adj_sym += 1;
-                    }
+            if let Some(entry) = entry {
+                if entry.is_symbol {
+                    num_adj_sym += 1;
                 }
-                None => (),
             };
         }
     }
@@ -175,13 +170,10 @@ fn add_adj_stars(
     for i in (row - 1)..(row + 2) {
         for j in (col - 1)..(col + 2) {
             let entry = engine_schematic.get(i as usize, j as usize);
-            match entry {
-                Some(entry) => {
-                    if entry.is_gear {
-                        num.push((i as usize, j as usize));
-                    }
+            if let Some(entry) = entry {
+                if entry.is_gear {
+                    num.push((i as usize, j as usize));
                 }
-                None => (),
             };
         }
     }
