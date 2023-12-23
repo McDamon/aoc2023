@@ -19,6 +19,7 @@ enum Card {
     Four = 4,
     Three = 3,
     Two = 2,
+    Joker = 1,
 }
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
@@ -47,42 +48,97 @@ impl Hand {
 
         let mut hand_type: HandType = HandType::HighCard;
 
-        let mut pair_count = 0;
+        let mut five_of_a_kind_count = 0;
+        let mut four_of_a_kind_count = 0;
         let mut three_of_a_kind_count = 0;
-        for (_, group) in &groups {
+        let mut pair_count = 0;
+        let mut joker_count = 0;
+        for (card, group) in &groups {
             let count = group.count();
-            match count {
-                5 => {
-                    hand_type = HandType::FiveOfAKind;
-                    break;
-                }
-                4 => {
-                    hand_type = HandType::FourOfAKind;
-                    break;
-                }
-                3 => {
-                    three_of_a_kind_count += 1;
-                }
-                2 => {
-                    pair_count += 1;
-                }
-                _ => (),
+            match card {
+                Card::Joker => joker_count = count,
+                _ => match count {
+                    5 => {
+                        five_of_a_kind_count += 1;
+                    }
+                    4 => {
+                        four_of_a_kind_count += 1;
+                    }
+                    3 => {
+                        three_of_a_kind_count += 1;
+                    }
+                    2 => {
+                        pair_count += 1;
+                    }
+                    _ => (),
+                },
             }
         }
 
-        if three_of_a_kind_count == 1 && pair_count == 1 {
+        if four_of_a_kind_count == 1 && joker_count == 1 {
+            five_of_a_kind_count = 1;
+            four_of_a_kind_count = 0;
+        }
+        else if three_of_a_kind_count == 1 && joker_count == 2 {
+            five_of_a_kind_count = 1;
+            three_of_a_kind_count = 0;
+        }
+        else if three_of_a_kind_count == 1 && joker_count == 1 {
+            four_of_a_kind_count = 1;
+            three_of_a_kind_count = 0;
+        }
+        else if three_of_a_kind_count == 1 && joker_count == 2 {
+            five_of_a_kind_count = 1;
+            three_of_a_kind_count = 0;
+        }
+        else if pair_count == 2 && joker_count == 1 {
+            three_of_a_kind_count = 1;
+            pair_count = 1;
+        }
+        else if pair_count == 1 && joker_count == 3 {
+            five_of_a_kind_count = 1;
+            pair_count = 0;
+        }
+        else if pair_count == 1 && joker_count == 2 {
+            four_of_a_kind_count = 1;
+            pair_count = 0;
+        }
+        else if pair_count == 1 && joker_count == 1 {
+            three_of_a_kind_count = 1;
+            pair_count = 0;
+        }
+        else if joker_count == 5 {
+            five_of_a_kind_count = 1;
+        }
+        else if joker_count == 4 {
+            five_of_a_kind_count = 1;
+        }
+        else if joker_count == 3 {
+            four_of_a_kind_count = 1;
+        }
+        else if joker_count == 2 {
+            three_of_a_kind_count = 1;
+        }
+        else if joker_count == 1 {
+            pair_count = 1;
+        }
+
+        if five_of_a_kind_count == 1 {
+            hand_type = HandType::FiveOfAKind;
+        }
+        else if four_of_a_kind_count == 1 {
+            hand_type = HandType::FourOfAKind;
+        }
+        else if three_of_a_kind_count == 1 && pair_count == 1 {
             hand_type = HandType::FullHouse;
         }
-
-        if three_of_a_kind_count == 1 && pair_count == 0 {
+        else if three_of_a_kind_count == 1 && pair_count == 0 {
             hand_type = HandType::ThreeOfAKind;
         }
-
-        if three_of_a_kind_count == 0 && pair_count == 2 {
+        else if three_of_a_kind_count == 0 && pair_count == 2 {
             hand_type = HandType::TwoPair;
         }
-
-        if three_of_a_kind_count == 0 && pair_count == 1 {
+        else if three_of_a_kind_count == 0 && pair_count == 1 {
             hand_type = HandType::OnePair;
         }
 
@@ -90,12 +146,11 @@ impl Hand {
     }
 
     fn hand_rank(&self, other_cards: &Vec<Card>) -> Ordering {
-        let scores = self.cards
+        let scores = self
+            .cards
             .iter()
             .zip(other_cards.into_iter())
-            .map(|(self_card, other_card)| {
-                self_card.cmp(other_card)
-            });
+            .map(|(self_card, other_card)| self_card.cmp(other_card));
 
         for score in scores {
             match score {
@@ -137,7 +192,7 @@ struct Input {
     hands: Vec<Hand>,
 }
 
-fn parse_input(input_file: &str) -> Input {
+fn parse_input(input_file: &str, use_joker: bool) -> Input {
     let lines = get_lines(input_file);
 
     let mut input = Input::default();
@@ -145,7 +200,7 @@ fn parse_input(input_file: &str) -> Input {
     for line in lines {
         let line_parts: Vec<&str> = line.split_whitespace().collect();
         let hand = Hand {
-            cards: parse_hand(line_parts.first().unwrap()),
+            cards: parse_hand(line_parts.first().unwrap(), use_joker),
             bid: line_parts.last().unwrap().parse().unwrap(),
         };
         input.hands.push(hand);
@@ -154,20 +209,26 @@ fn parse_input(input_file: &str) -> Input {
     input
 }
 
-fn parse_hand(hand_str: &str) -> Vec<Card> {
+fn parse_hand(hand_str: &str, use_joker: bool) -> Vec<Card> {
     let mut hand: Vec<Card> = vec![];
     for card in hand_str.chars() {
-        hand.push(parse_card(card));
+        hand.push(parse_card(card, use_joker));
     }
     hand
 }
 
-fn parse_card(card_char: char) -> Card {
+fn parse_card(card_char: char, use_joker: bool) -> Card {
     return match card_char {
         'A' => Card::Ace,
         'K' => Card::King,
         'Q' => Card::Queen,
-        'J' => Card::Jack,
+        'J' => {
+            if use_joker {
+                Card::Joker
+            } else {
+                Card::Jack
+            }
+        }
         'T' => Card::Ten,
         '9' => Card::Nine,
         '8' => Card::Eight,
@@ -177,16 +238,21 @@ fn parse_card(card_char: char) -> Card {
         '4' => Card::Four,
         '3' => Card::Three,
         '2' => Card::Two,
-        _ => panic!("invalid card"),
+        _ => panic!("invalid card: {}", card_char),
     };
 }
 
-fn get_total_winnings(input_file: &str) -> u64 {
+fn get_total_winnings(input_file: &str, use_joker: bool) -> u64 {
     let mut total_winnings: u64 = 0;
-    let mut input = parse_input(input_file);
+    let mut input = parse_input(input_file, use_joker);
     input.hands.sort();
     for (rank, hand) in input.hands.iter().enumerate() {
-        //println!("Rank: {} Hand: {:?} Hand Type: {:?}", rank + 1, hand, hand.hand_type());
+        /*println!(
+            "Rank: {} Hand: {:?} Hand Type: {:?}",
+            rank + 1,
+            hand,
+            hand.hand_type()
+        );*/
         total_winnings += hand.bid * (rank as u64 + 1);
     }
     total_winnings
@@ -198,21 +264,36 @@ mod tests {
 
     #[test]
     fn test_get_total_winnings_test01() {
-        assert_eq!(6440, get_total_winnings("input/day07_test01.txt"));
+        assert_eq!(6440, get_total_winnings("input/day07_test01.txt", false));
     }
 
     #[test]
     fn test_get_total_winnings_test02() {
-        assert_eq!(8, get_total_winnings("input/day07_test02.txt"));
+        assert_eq!(8, get_total_winnings("input/day07_test02.txt", false));
     }
 
     #[test]
     fn test_get_total_winnings_test03() {
-        assert_eq!(8, get_total_winnings("input/day07_test03.txt"));
+        assert_eq!(8, get_total_winnings("input/day07_test03.txt", false));
     }
 
     #[test]
     fn test_get_total_winnings() {
-        assert_eq!(251545216, get_total_winnings("input/day07.txt"));
+        assert_eq!(251545216, get_total_winnings("input/day07.txt", false));
+    }
+
+    #[test]
+    fn test_get_total_winnings_joker_test01() {
+        assert_eq!(5905, get_total_winnings("input/day07_test01.txt", true));
+    }
+    
+    #[test]
+    fn test_get_total_winnings_joker_test04() {
+        assert_eq!(65, get_total_winnings("input/day07_test04.txt", true));
+    }
+
+    #[test]
+    fn test_get_total_winnings_joker() {
+        assert_eq!(250384185, get_total_winnings("input/day07.txt", true));
     }
 }
