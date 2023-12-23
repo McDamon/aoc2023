@@ -4,7 +4,7 @@ use super::utils::get_lines;
 
 #[derive(Debug, Default)]
 struct Races {
-    races: Vec<(u32, u32)>,
+    races: Vec<(u64, u64)>,
 }
 
 #[derive(Debug)]
@@ -25,12 +25,12 @@ fn parse_input(input_file: &str) -> Input {
 fn parse_races(lines: Vec<String>) -> Races {
     let mut races = Races::default();
     let times_str = &lines[0].rsplit_once(':').unwrap().1.trim();
-    let times: Vec<u32> = times_str
+    let times: Vec<u64> = times_str
         .split_whitespace()
         .map(|time| time.parse().unwrap())
         .collect();
     let distances_str = &lines[1].rsplit_once(':').unwrap().1.trim();
-    let distances: Vec<u32> = distances_str
+    let distances: Vec<u64> = distances_str
         .split_whitespace()
         .map(|time| time.parse().unwrap())
         .collect();
@@ -42,8 +42,8 @@ fn parse_races(lines: Vec<String>) -> Races {
     races
 }
 
-fn get_multiple_beaten_records(input_file: &str) -> u32 {
-    let mut beaten_records: u32 = 1;
+fn get_multiple_beaten_records(input_file: &str) -> u64 {
+    let mut beaten_records: u64 = 1;
     let input = parse_input(input_file);
     for race in input.races.races {
         beaten_records *= get_beaten_records(race);
@@ -51,8 +51,8 @@ fn get_multiple_beaten_records(input_file: &str) -> u32 {
     beaten_records
 }
 
-fn get_beaten_records((time, distance): (u32, u32)) -> u32 {
-    let mut beaten_records: u32 = 0;
+fn get_beaten_records((time, distance): (u64, u64)) -> u64 {
+    let mut beaten_records: u64 = 0;
     for t in 0..time {
         let dist = t * (time - t);
         if dist > distance {
@@ -87,7 +87,12 @@ mod tests {
     }
 
     #[test]
-    fn test_get_multiple_beaten_records() {
-        assert_eq!(140220, get_multiple_beaten_records("input/day06.txt"));
+    fn test_get_multiple_beaten_records_part01() {
+        assert_eq!(140220, get_multiple_beaten_records("input/day06_part01.txt"));
+    }
+
+    #[test]
+    fn test_get_multiple_beaten_records_part02() {
+        assert_eq!(39570185, get_multiple_beaten_records("input/day06_part02.txt"));
     }
 }
