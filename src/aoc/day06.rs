@@ -27,16 +27,12 @@ fn parse_races(lines: Vec<String>) -> Races {
     let times_str = &lines[0].rsplit_once(':').unwrap().1.trim();
     let times: Vec<u32> = times_str
         .split_whitespace()
-        .map(|time| {
-            time.parse().unwrap()
-        })
+        .map(|time| time.parse().unwrap())
         .collect();
     let distances_str = &lines[1].rsplit_once(':').unwrap().1.trim();
     let distances: Vec<u32> = distances_str
-    .split_whitespace()
-        .map(|time| {
-            time.parse().unwrap()
-        })
+        .split_whitespace()
+        .map(|time| time.parse().unwrap())
         .collect();
     races.races = times
         .into_iter()
@@ -46,9 +42,24 @@ fn parse_races(lines: Vec<String>) -> Races {
     races
 }
 
-fn get_beaten_records(input_file: &str) -> u32 {
+fn get_multiple_beaten_records(input_file: &str) -> u32 {
+    let mut beaten_records: u32 = 1;
     let input = parse_input(input_file);
-    0
+    for race in input.races.races {
+        beaten_records *= get_beaten_records(race);
+    }
+    beaten_records
+}
+
+fn get_beaten_records((time, distance): (u32, u32)) -> u32 {
+    let mut beaten_records: u32 = 0;
+    for t in 0..time {
+        let dist = t * (time - t);
+        if dist > distance {
+            beaten_records += 1;
+        }
+    }
+    beaten_records
 }
 
 #[cfg(test)]
@@ -56,12 +67,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_get_destination_test01() {
-        assert_eq!(0, get_beaten_records("input/day06_test01.txt"));
+    fn test_get_multiple_beaten_records_test01() {
+        assert_eq!(288, get_multiple_beaten_records("input/day06_test01.txt"));
     }
 
     #[test]
-    fn test_get_destination_test02() {
-        assert_eq!(0, get_beaten_records("input/day06.txt"));
+    fn test_get_multiple_beaten_records_test02() {
+        assert_eq!(4, get_multiple_beaten_records("input/day06_test02.txt"));
+    }
+    
+    #[test]
+    fn test_get_multiple_beaten_records_test03() {
+        assert_eq!(8, get_multiple_beaten_records("input/day06_test03.txt"));
+    }
+    
+    #[test]
+    fn test_get_multiple_beaten_records_test04() {
+        assert_eq!(9, get_multiple_beaten_records("input/day06_test04.txt"));
+    }
+
+    #[test]
+    fn test_get_multiple_beaten_records() {
+        assert_eq!(140220, get_multiple_beaten_records("input/day06.txt"));
     }
 }
