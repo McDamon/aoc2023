@@ -9,7 +9,7 @@ pub fn get_lines(input_file: &str) -> Vec<String> {
     let path = Path::new(input_file);
     let display = path.display();
 
-    let file = match File::open(&input_file) {
+    let file = match File::open(input_file) {
         // The `description` method of `io::Error` returns a string that describes the error
         Err(why) => panic!(
             "couldn't open {}: {}",
@@ -20,9 +20,8 @@ pub fn get_lines(input_file: &str) -> Vec<String> {
     };
 
     let reader = BufReader::new(file);
-    let lines = reader
+    reader
         .lines()
         .map(|l| l.expect("Could not parse line"))
-        .collect();
-    lines
+        .collect()
 }

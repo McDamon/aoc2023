@@ -87,10 +87,6 @@ impl Hand {
             four_of_a_kind_count = 1;
             three_of_a_kind_count = 0;
         }
-        else if three_of_a_kind_count == 1 && joker_count == 2 {
-            five_of_a_kind_count = 1;
-            three_of_a_kind_count = 0;
-        }
         else if pair_count == 2 && joker_count == 1 {
             three_of_a_kind_count = 1;
             pair_count = 1;
@@ -107,10 +103,7 @@ impl Hand {
             three_of_a_kind_count = 1;
             pair_count = 0;
         }
-        else if joker_count == 5 {
-            five_of_a_kind_count = 1;
-        }
-        else if joker_count == 4 {
+        else if joker_count == 4 || joker_count == 5 {
             five_of_a_kind_count = 1;
         }
         else if joker_count == 3 {
@@ -149,7 +142,7 @@ impl Hand {
         let scores = self
             .cards
             .iter()
-            .zip(other_cards.into_iter())
+            .zip(other_cards)
             .map(|(self_card, other_card)| self_card.cmp(other_card));
 
         for score in scores {
@@ -218,7 +211,7 @@ fn parse_hand(hand_str: &str, use_joker: bool) -> Vec<Card> {
 }
 
 fn parse_card(card_char: char, use_joker: bool) -> Card {
-    return match card_char {
+    match card_char {
         'A' => Card::Ace,
         'K' => Card::King,
         'Q' => Card::Queen,
@@ -239,7 +232,7 @@ fn parse_card(card_char: char, use_joker: bool) -> Card {
         '3' => Card::Three,
         '2' => Card::Two,
         _ => panic!("invalid card: {}", card_char),
-    };
+    }
 }
 
 fn get_total_winnings(input_file: &str, use_joker: bool) -> u64 {

@@ -15,11 +15,9 @@ struct Input {
 fn parse_input(input_file: &str) -> Input {
     let lines = get_lines(input_file);
 
-    let input = Input {
+    Input {
         races: parse_races(lines),
-    };
-
-    input
+    }
 }
 
 fn parse_races(lines: Vec<String>) -> Races {
@@ -36,7 +34,7 @@ fn parse_races(lines: Vec<String>) -> Races {
         .collect();
     races.races = times
         .into_iter()
-        .zip(distances.into_iter())
+        .zip(distances)
         .map(|(time, distance)| (time, distance))
         .collect();
     races

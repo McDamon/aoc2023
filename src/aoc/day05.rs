@@ -36,11 +36,9 @@ struct Input {
 fn parse_input(input_file: &str) -> Input {
     let lines = get_lines(input_file);
 
-    let input = Input {
+    Input {
         almanac: parse_almanac(lines),
-    };
-
-    input
+    }
 }
 
 fn parse_almanac(lines: Vec<String>) -> Almanac {
@@ -139,72 +137,67 @@ fn get_lowest_location(input_file: &str, seeds_as_ranges: bool) -> u64 {
     let mut seeds: Vec<u64> = vec![];
 
     if seeds_as_ranges {
-        input
-            .almanac
-            .seeds
-            .chunks(2)
-            .for_each(|range| {
-                let range = range[0]..(range[0] + range[1]);
-                seeds.append(&mut range.collect_vec());
-            });
+        input.almanac.seeds.chunks(2).for_each(|range| {
+            let range = range[0]..(range[0] + range[1]);
+            seeds.append(&mut range.collect_vec());
+        });
     } else {
         seeds = input.almanac.seeds;
     }
 
-    let locations: Vec<_> = seeds.par_iter().map(|seed| {
-        let soil_lookup;
-        match get_destinations(*seed, &input.almanac.seed_to_soil) {
-            Some(lookup_val) => soil_lookup = lookup_val,
-            _ => soil_lookup = *seed,
-        }
+    let locations: Vec<_> = seeds
+        .par_iter()
+        .map(|seed| {
+            let soil_lookup = match get_destinations(*seed, &input.almanac.seed_to_soil) {
+                Some(lookup_val) => lookup_val,
+                _ => *seed,
+            };
 
-        let fertilizer_lookup;
-        match get_destinations(soil_lookup, &input.almanac.soil_to_fertilizer) {
-            Some(lookup_val) => fertilizer_lookup = lookup_val,
-            _ => fertilizer_lookup = soil_lookup,
-        }
+            let fertilizer_lookup =
+                match get_destinations(soil_lookup, &input.almanac.soil_to_fertilizer) {
+                    Some(lookup_val) => lookup_val,
+                    _ => soil_lookup,
+                };
 
-        let water_lookup;
-        match get_destinations(fertilizer_lookup, &input.almanac.fertilizer_to_water) {
-            Some(lookup_val) => water_lookup = lookup_val,
-            _ => water_lookup = fertilizer_lookup,
-        }
+            let water_lookup =
+                match get_destinations(fertilizer_lookup, &input.almanac.fertilizer_to_water) {
+                    Some(lookup_val) => lookup_val,
+                    _ => fertilizer_lookup,
+                };
 
-        let light_lookup;
-        match get_destinations(water_lookup, &input.almanac.water_to_light) {
-            Some(lookup_val) => light_lookup = lookup_val,
-            _ => light_lookup = water_lookup,
-        }
+            let light_lookup = match get_destinations(water_lookup, &input.almanac.water_to_light) {
+                Some(lookup_val) => lookup_val,
+                _ => water_lookup,
+            };
 
-        let temperature_lookup;
-        match get_destinations(light_lookup, &input.almanac.light_to_temperature) {
-            Some(lookup_val) => temperature_lookup = lookup_val,
-            _ => temperature_lookup = light_lookup,
-        }
+            let temperature_lookup =
+                match get_destinations(light_lookup, &input.almanac.light_to_temperature) {
+                    Some(lookup_val) => lookup_val,
+                    _ => light_lookup,
+                };
 
-        let humidity_lookup;
-        match get_destinations(temperature_lookup, &input.almanac.temperature_to_humidity) {
-            Some(lookup_val) => humidity_lookup = lookup_val,
-            _ => humidity_lookup = temperature_lookup,
-        }
+            let humidity_lookup = match get_destinations(
+                temperature_lookup,
+                &input.almanac.temperature_to_humidity,
+            ) {
+                Some(lookup_val) => lookup_val,
+                _ => temperature_lookup,
+            };
 
-        let location_lookup;
-        match get_destinations(humidity_lookup, &input.almanac.humidity_to_location) {
-            Some(lookup_val) => location_lookup = lookup_val,
-            _ => location_lookup = humidity_lookup,
-        }
-
-        location_lookup
-    }).collect();
+            match get_destinations(humidity_lookup, &input.almanac.humidity_to_location) {
+                Some(lookup_val) => lookup_val,
+                _ => humidity_lookup,
+            }
+        })
+        .collect();
 
     *locations.iter().min().unwrap()
 }
 
 fn get_destinations(lookup_val: u64, ranges: &Vec<(u64, u64, u64)>) -> Option<u64> {
     for range in ranges {
-        match get_destination(lookup_val, range) {
-            Some(dest_val) => return Some(dest_val),
-            None => (),
+        if let Some(dest_val) = get_destination(lookup_val, range) {
+            return Some(dest_val)
         }
     }
     Some(lookup_val)
