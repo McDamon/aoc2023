@@ -25,7 +25,7 @@ impl TreeNode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum Instruction {
     Left,
     Right,
@@ -67,20 +67,19 @@ fn parse_input(input_file: &str) -> Input {
 
     for tree_node in tree_nodes {
         let tree_child = find_child(Some(tree_root.clone()), tree_node.as_str());
-        
+
         if let Some(t) = tree_child {
-            if let Some((left, right)) = tree_entries.get(&t.clone().borrow().val) {
-                t.borrow_mut().left = Some(Rc::new(RefCell::new(TreeNode::new(
-                    left.to_string(),
-                ))));
-                t.borrow_mut().right = Some(Rc::new(RefCell::new(TreeNode::new(
-                    right.to_string(),
-                ))));
+            let mut borrow_t = t.borrow_mut();
+            if let Some((left, right)) = tree_entries.get(&borrow_t.val) {
+                borrow_t.left = Some(Rc::new(RefCell::new(TreeNode::new(left.to_string()))));
+                borrow_t.right = Some(Rc::new(RefCell::new(TreeNode::new(right.to_string()))));
+            } else {
+                panic!("Error processing tree node: {}", tree_node)
             }
         }
     }
-
-    println!("{:?}", tree_root);
+    
+    println!("{:#?}", tree_root);
 
     Input {
         instructions,
@@ -124,21 +123,55 @@ fn parse_instruction(instruction_char: char) -> Instruction {
     match instruction_char {
         'L' => Instruction::Left,
         'R' => Instruction::Right,
-        _ => panic!("invalid instruction: {}", instruction_char),
+        _ => panic!("Invalid instruction: {}", instruction_char),
     }
 }
 
 fn get_num_steps(input_file: &str) -> u64 {
-    let num_steps: u64 = 1;
-    //let input = parse_input(input_file);
+    let mut num_steps: u64 = 0;
+    let input = parse_input(input_file);
+    let mut tree_node = Some(input.tree_root);
+    /*for instruction in input.instructions.iter().cycle() {
+        tree_node = traverse_tree(tree_node, instruction);
+
+        if let Some(ref t) = tree_node {
+            num_steps += 1;
+            let val = &t.borrow().val;
+            println!("{}", val);
+            if val == "ZZZ" {
+                println!("Breaking...");
+                break;
+            }
+        }
+    }*/
+
     num_steps
+}
+
+fn traverse_tree(
+    root: Option<Rc<RefCell<TreeNode>>>,
+    instruction: &Instruction,
+) -> Option<Rc<RefCell<TreeNode>>> {
+    if let Some(r) = root {
+        let left = r.borrow().left.clone();
+        let right = r.borrow().right.clone();
+
+        if left.is_some() && *instruction == Instruction::Left {
+            return left;
+        }
+
+        if right.is_some() && *instruction == Instruction::Right {
+            return right;
+        }
+    }
+    None
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /*#[test]
+    #[test]
     fn test_get_num_steps_test01() {
         assert_eq!(2, get_num_steps("input/day08_test01.txt"));
     }
@@ -150,6 +183,6 @@ mod tests {
 
     #[test]
     fn test_get_num_steps() {
-        assert_eq!(0, get_num_steps("input/day08.txt"));
-    }*/
+        assert_eq!(1, get_num_steps("input/day08.txt"));
+    }
 }

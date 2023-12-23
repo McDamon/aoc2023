@@ -231,7 +231,7 @@ fn parse_card(card_char: char, use_joker: bool) -> Card {
         '4' => Card::Four,
         '3' => Card::Three,
         '2' => Card::Two,
-        _ => panic!("invalid card: {}", card_char),
+        _ => panic!("Invalid card: {}", card_char),
     }
 }
 
