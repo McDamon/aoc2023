@@ -3,27 +3,7 @@
 use regex::Regex;
 
 use super::utils::get_lines;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
-
-// Definition for a binary tree node
-#[derive(Debug, PartialEq, Eq)]
-pub struct TreeNode {
-    pub val: String,
-    pub left: Option<Rc<RefCell<TreeNode>>>,
-    pub right: Option<Rc<RefCell<TreeNode>>>,
-}
-
-impl TreeNode {
-    #[inline]
-    #[allow(dead_code)]
-    pub fn new(val: String) -> Self {
-        TreeNode {
-            val,
-            left: None,
-            right: None,
-        }
-    }
-}
+use std::collections::HashMap;
 
 #[derive(Debug, PartialEq)]
 enum Instruction {
@@ -34,7 +14,9 @@ enum Instruction {
 #[derive(Debug)]
 struct Input {
     instructions: Vec<Instruction>,
-    tree_root: Rc<RefCell<TreeNode>>,
+    tree_root: String,
+    tree_leaf: String,
+    tree_nodes: HashMap<String, (String, String)>,
 }
 
 fn parse_input(input_file: &str) -> Input {
@@ -47,8 +29,8 @@ fn parse_input(input_file: &str) -> Input {
 
     let instructions = parse_instructions(lines.first().unwrap());
 
-    let mut tree_nodes: Vec<String> = vec![];
-    let mut tree_entries: HashMap<String, (String, String)> = HashMap::new();
+    let mut tree_node_names: Vec<String> = vec![];
+    let mut tree_nodes: HashMap<String, (String, String)> = HashMap::new();
 
     for line in lines.into_iter().skip(2) {
         let caps_tree_nodes = RE_TREENODE.captures(&line);
@@ -56,59 +38,19 @@ fn parse_input(input_file: &str) -> Input {
             let root = caps_tree_nodes["root"].to_string();
             let left = caps_tree_nodes["left"].to_string();
             let right = caps_tree_nodes["right"].to_string();
-            tree_nodes.push(root.clone());
-            tree_entries.insert(root, (left, right));
+            tree_node_names.push(root.clone());
+            tree_nodes.insert(root, (left, right));
         }
     }
 
-    let tree_root = Rc::new(RefCell::new(TreeNode::new(
-        tree_nodes.first().unwrap().clone(),
-    )));
-
-    for tree_node in tree_nodes {
-        let tree_child = find_child(Some(tree_root.clone()), tree_node.as_str());
-
-        if let Some(t) = tree_child {
-            let mut borrow_t = t.borrow_mut();
-            if let Some((left, right)) = tree_entries.get(&borrow_t.val) {
-                borrow_t.left = Some(Rc::new(RefCell::new(TreeNode::new(left.to_string()))));
-                borrow_t.right = Some(Rc::new(RefCell::new(TreeNode::new(right.to_string()))));
-            } else {
-                panic!("Error processing tree node: {}", tree_node)
-            }
-        }
-    }
-    
-    println!("{:#?}", tree_root);
+    tree_node_names.sort();
 
     Input {
         instructions,
-        tree_root,
+        tree_root: tree_node_names.first().unwrap().to_string(),
+        tree_leaf: tree_node_names.last().unwrap().to_string(),
+        tree_nodes,
     }
-}
-
-fn find_child(
-    root: Option<Rc<RefCell<TreeNode>>>,
-    child_node_name: &str,
-) -> Option<Rc<RefCell<TreeNode>>> {
-    if let Some(r) = root {
-        if child_node_name == r.borrow().val.clone() {
-            return Some(r);
-        }
-
-        let left = r.borrow().left.clone();
-        let right = r.borrow().right.clone();
-
-        let l = find_child(left, child_node_name);
-        if l.is_some() {
-            return l;
-        }
-        let r = find_child(right, child_node_name);
-        if r.is_some() {
-            return r;
-        }
-    }
-    None
 }
 
 fn parse_instructions(instructions_str: &str) -> Vec<Instruction> {
@@ -130,39 +72,38 @@ fn parse_instruction(instruction_char: char) -> Instruction {
 fn get_num_steps(input_file: &str) -> u64 {
     let mut num_steps: u64 = 0;
     let input = parse_input(input_file);
-    let mut tree_node = Some(input.tree_root);
-    /*for instruction in input.instructions.iter().cycle() {
-        tree_node = traverse_tree(tree_node, instruction);
-
-        if let Some(ref t) = tree_node {
-            num_steps += 1;
-            let val = &t.borrow().val;
-            println!("{}", val);
-            if val == "ZZZ" {
-                println!("Breaking...");
-                break;
-            }
+    let mut current_node = Some(input.tree_root);
+    for instruction in input.instructions.iter().cycle() {
+        current_node = traverse_tree(
+            &input.tree_nodes,
+            current_node.unwrap().as_str(),
+            &input.tree_leaf,
+            instruction,
+        );
+        num_steps += 1;
+        if current_node.is_none() {
+            break;
         }
-    }*/
+    }
 
     num_steps
 }
 
 fn traverse_tree(
-    root: Option<Rc<RefCell<TreeNode>>>,
+    tree_nodes: &HashMap<String, (String, String)>,
+    current_node: &str,
+    leaf_node: &str,
     instruction: &Instruction,
-) -> Option<Rc<RefCell<TreeNode>>> {
-    if let Some(r) = root {
-        let left = r.borrow().left.clone();
-        let right = r.borrow().right.clone();
-
-        if left.is_some() && *instruction == Instruction::Left {
-            return left;
+) -> Option<String> {
+    match tree_nodes.get(current_node) {
+        Some((left, right)) => {
+            if *instruction == Instruction::Left && current_node != left && left != leaf_node {
+                return Some(left.clone());
+            } else if *instruction == Instruction::Right && current_node != right && right != leaf_node {
+                return Some(right.clone());
+            }
         }
-
-        if right.is_some() && *instruction == Instruction::Right {
-            return right;
-        }
+        None => panic!("Invalid current_node"),
     }
     None
 }
@@ -183,6 +124,6 @@ mod tests {
 
     #[test]
     fn test_get_num_steps() {
-        assert_eq!(1, get_num_steps("input/day08.txt"));
+        assert_eq!(21883, get_num_steps("input/day08.txt"));
     }
 }
