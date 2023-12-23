@@ -1,4 +1,4 @@
-// https://adventofcode.com/2023/day/4
+// https://adventofcode.com/2023/day/5
 
 use itertools::Itertools;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
