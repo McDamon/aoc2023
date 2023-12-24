@@ -14,8 +14,7 @@ enum Instruction {
 #[derive(Debug)]
 struct Input {
     instructions: Vec<Instruction>,
-    tree_root: String,
-    tree_leaf: String,
+    tree_node_names: Vec<String>,
     tree_nodes: HashMap<String, (String, String)>,
 }
 
@@ -47,8 +46,7 @@ fn parse_input(input_file: &str) -> Input {
 
     Input {
         instructions,
-        tree_root: tree_node_names.first().unwrap().to_string(),
-        tree_leaf: tree_node_names.last().unwrap().to_string(),
+        tree_node_names,
         tree_nodes,
     }
 }
@@ -72,12 +70,12 @@ fn parse_instruction(instruction_char: char) -> Instruction {
 fn get_num_steps(input_file: &str) -> u64 {
     let mut num_steps: u64 = 0;
     let input = parse_input(input_file);
-    let mut current_node = Some(input.tree_root);
+    let mut current_node = Some(input.tree_node_names.first().unwrap().clone());
     for instruction in input.instructions.iter().cycle() {
         current_node = traverse_tree(
             &input.tree_nodes,
-            current_node.unwrap().as_str(),
-            &input.tree_leaf,
+            current_node.unwrap(),
+            input.tree_node_names.last().unwrap().clone(),
             instruction,
         );
         num_steps += 1;
@@ -89,17 +87,58 @@ fn get_num_steps(input_file: &str) -> u64 {
     num_steps
 }
 
+fn get_num_steps_end_with_z(input_file: &str) -> u64 {
+    let mut num_steps_vec: Vec<u64> = vec![];
+
+    let input = parse_input(input_file);
+    let start_nodes: Vec<String> = input
+        .tree_node_names
+        .into_iter()
+        .filter(|e| e.ends_with('A') && e != "AAA")
+        .collect();
+    for start_node in start_nodes {
+        let mut num_steps: u64 = 0;
+        let mut end_node = start_node.clone();
+        end_node.replace_range(2..3, "Z");
+        let mut current_node = Some(start_node);
+        for instruction in input.instructions.iter().cycle() {
+            current_node = traverse_tree(
+                &input.tree_nodes,
+                current_node.unwrap(),
+                end_node.clone(),
+                instruction,
+            );
+            num_steps += 1;
+            if current_node.is_none() {
+                num_steps_vec.push(num_steps);
+                break;
+            }
+        }
+    }
+
+    let lcm = num_steps_vec.into_iter().fold(1, |sum, x| {
+        sum + num::integer::lcm(sum, x)
+    });
+
+    println!("{:?}", lcm);
+
+    lcm
+}
+
 fn traverse_tree(
     tree_nodes: &HashMap<String, (String, String)>,
-    current_node: &str,
-    leaf_node: &str,
+    current_node: String,
+    leaf_node: String,
     instruction: &Instruction,
 ) -> Option<String> {
-    match tree_nodes.get(current_node) {
+    match tree_nodes.get(&current_node) {
         Some((left, right)) => {
-            if *instruction == Instruction::Left && current_node != left && left != leaf_node {
+            if *instruction == Instruction::Left && *current_node != *left && *left != leaf_node {
                 return Some(left.clone());
-            } else if *instruction == Instruction::Right && current_node != right && right != leaf_node {
+            } else if *instruction == Instruction::Right
+                && *current_node != *right
+                && *right != leaf_node
+            {
                 return Some(right.clone());
             }
         }
@@ -125,5 +164,15 @@ mod tests {
     #[test]
     fn test_get_num_steps() {
         assert_eq!(21883, get_num_steps("input/day08.txt"));
+    }
+
+    #[test]
+    fn test_get_num_steps_end_with_z_test03() {
+        assert_eq!(6, get_num_steps_end_with_z("input/day08_test03.txt"));
+    }
+
+    #[test]
+    fn test_get_num_steps_end_with_z() {
+        assert_eq!(0, get_num_steps_end_with_z("input/day08.txt"));
     }
 }
