@@ -94,20 +94,14 @@ fn get_num_steps_end_with_z(input_file: &str) -> u64 {
     let start_nodes: Vec<String> = input
         .tree_node_names
         .into_iter()
-        .filter(|e| e.ends_with('A') && e != "AAA")
+        .filter(|e| e.ends_with('A'))
         .collect();
     for start_node in start_nodes {
         let mut num_steps: u64 = 0;
-        let mut end_node = start_node.clone();
-        end_node.replace_range(2..3, "Z");
         let mut current_node = Some(start_node);
         for instruction in input.instructions.iter().cycle() {
-            current_node = traverse_tree(
-                &input.tree_nodes,
-                current_node.unwrap(),
-                end_node.clone(),
-                instruction,
-            );
+            current_node =
+                traverse_tree_ends_with_z(&input.tree_nodes, current_node.unwrap(), instruction);
             num_steps += 1;
             if current_node.is_none() {
                 num_steps_vec.push(num_steps);
@@ -116,9 +110,9 @@ fn get_num_steps_end_with_z(input_file: &str) -> u64 {
         }
     }
 
-    let lcm = num_steps_vec.into_iter().fold(1, |sum, x| {
-        sum + num::integer::lcm(sum, x)
-    });
+    let lcm = num_steps_vec
+        .into_iter()
+        .fold(1, |x, y| num::integer::lcm(x, y));
 
     println!("{:?}", lcm);
 
@@ -138,6 +132,32 @@ fn traverse_tree(
             } else if *instruction == Instruction::Right
                 && *current_node != *right
                 && *right != leaf_node
+            {
+                return Some(right.clone());
+            }
+        }
+        None => panic!("Invalid current_node"),
+    }
+    None
+}
+
+fn traverse_tree_ends_with_z(
+    tree_nodes: &HashMap<String, (String, String)>,
+    current_node: String,
+    instruction: &Instruction,
+) -> Option<String> {
+    match tree_nodes.get(&current_node) {
+        Some((left, right)) => {
+            if *instruction == Instruction::Left
+                && *current_node != *left
+                && !left.ends_with('Z')
+                && !current_node.ends_with('Z')
+            {
+                return Some(left.clone());
+            } else if *instruction == Instruction::Right
+                && *current_node != *right
+                && !right.ends_with('Z')
+                && !current_node.ends_with('Z')
             {
                 return Some(right.clone());
             }
