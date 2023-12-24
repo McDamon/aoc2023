@@ -112,7 +112,7 @@ fn get_num_steps_end_with_z(input_file: &str) -> u64 {
 
     let lcm = num_steps_vec
         .into_iter()
-        .fold(1, |x, y| num::integer::lcm(x, y));
+        .fold(1, num::integer::lcm);
 
     println!("{:?}", lcm);
 
@@ -193,6 +193,6 @@ mod tests {
 
     #[test]
     fn test_get_num_steps_end_with_z() {
-        assert_eq!(0, get_num_steps_end_with_z("input/day08.txt"));
+        assert_eq!(12833235391111, get_num_steps_end_with_z("input/day08.txt"));
     }
 }
