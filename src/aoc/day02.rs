@@ -63,7 +63,7 @@ fn parse_games(games_lines: Vec<String>) -> Vec<(u32, Vec<CubeCount>)> {
                     "red" => cube_count.red = game_result_cube_count,
                     "green" => cube_count.green = game_result_cube_count,
                     "blue" => cube_count.blue = game_result_cube_count,
-                    _ => panic!(""),
+                    _ => panic!("invalid game result"),
                 }
             }
             cube_counts.push(cube_count);
