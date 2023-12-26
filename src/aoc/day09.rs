@@ -44,12 +44,26 @@ fn extrapolate_next_value(report: &Vec<i64>) -> i64 {
         .collect::<Vec<_>>();
 
     let next_val = if next_report.iter().all(|x| *x == 0) {
+        println!("{:?}", next_report);
         *report.last().unwrap()
     } else {
         let val = extrapolate_next_value(&next_report);
         *report.last().unwrap() + val
     };
+
+    println!("{:?} {}", report, next_val);
+
     next_val
+}
+
+fn get_sum_back_extrapolated_values(input_file: &str) -> i64 {
+    let input = parse_input(input_file);
+    let mut extrapolated_values: Vec<i64> = vec![];
+    for report in input.reports {
+        let reversed_report: Vec<i64> = report.into_iter().rev().collect();
+        extrapolated_values.push(extrapolate_next_value(&reversed_report));
+    }
+    extrapolated_values.iter().sum()
 }
 
 #[cfg(test)]
@@ -90,7 +104,24 @@ mod tests {
     }
 
     #[test]
-    fn test_get_sum_extrapolated_values_part01() {
+    fn test_get_sum_extrapolated_values() {
         assert_eq!(1708206096, get_sum_extrapolated_values("input/day09.txt"));
     }
+
+    #[test]
+    fn test_get_sum_back_extrapolated_values_test01() {
+        assert_eq!(
+            5,
+            get_sum_back_extrapolated_values("input/day09_test03.txt")
+        );
+    }
+
+    #[test]
+    fn test_get_sum_back_extrapolated_values() {
+        assert_eq!(
+            1050,
+            get_sum_back_extrapolated_values("input/day09.txt")
+        );
+    }
+
 }
