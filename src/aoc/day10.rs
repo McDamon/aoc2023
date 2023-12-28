@@ -1,8 +1,7 @@
 // https://adventofcode.com/2023/day/10
 
-use std::{cell::RefCell, rc::Rc};
-
 use grid::Grid;
+use indextree::{Arena, NodeId};
 
 use super::utils::get_lines;
 
@@ -13,14 +12,14 @@ enum Pipe {
     Ground = b'.',
     VerticalNS = b'|',
     HorizontalEW = b'-',
-    NE90Deg = b'L',
-    NW90Deg = b'J',
-    SW90Deg = b'7',
-    SE90Deg = b'F',
+    NE90DegLSym = b'L',
+    NW90DegJSym = b'J',
+    SW90Deg7Sym = b'7',
+    SE90DegFSym = b'F',
     StartPos = b'S',
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 enum Direction {
     N,
     S,
@@ -36,10 +35,10 @@ impl TryFrom<u8> for Pipe {
             x if x == Pipe::Ground as u8 => Ok(Pipe::Ground),
             x if x == Pipe::VerticalNS as u8 => Ok(Pipe::VerticalNS),
             x if x == Pipe::HorizontalEW as u8 => Ok(Pipe::HorizontalEW),
-            x if x == Pipe::NE90Deg as u8 => Ok(Pipe::NE90Deg),
-            x if x == Pipe::NW90Deg as u8 => Ok(Pipe::NW90Deg),
-            x if x == Pipe::SW90Deg as u8 => Ok(Pipe::SW90Deg),
-            x if x == Pipe::SE90Deg as u8 => Ok(Pipe::SE90Deg),
+            x if x == Pipe::NE90DegLSym as u8 => Ok(Pipe::NE90DegLSym),
+            x if x == Pipe::NW90DegJSym as u8 => Ok(Pipe::NW90DegJSym),
+            x if x == Pipe::SW90Deg7Sym as u8 => Ok(Pipe::SW90Deg7Sym),
+            x if x == Pipe::SE90DegFSym as u8 => Ok(Pipe::SE90DegFSym),
             x if x == Pipe::StartPos as u8 => Ok(Pipe::StartPos),
             _ => Err(()),
         }
@@ -76,27 +75,13 @@ fn parse_tiles(tiles_lines: Vec<String>) -> Grid<Pipe> {
     tiles
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct TreeNode {
+#[derive(Debug, Copy, Clone)]
+struct Entry {
     pipe: Pipe,
     pos: (usize, usize),
-    left: Option<Rc<RefCell<TreeNode>>>,
-    right: Option<Rc<RefCell<TreeNode>>>,
 }
 
-impl TreeNode {
-    #[inline]
-    fn new(pipe: Pipe, pos: (usize, usize)) -> Self {
-        TreeNode {
-            pipe,
-            pos,
-            left: None,
-            right: None,
-        }
-    }
-}
-
-fn get_farthest_steps(input_file: &str) -> u32 {
+fn get_farthest_steps(input_file: &str) -> usize {
     let input = parse_input(input_file);
 
     let mut start_pos: Option<(usize, usize)> = None;
@@ -107,244 +92,156 @@ fn get_farthest_steps(input_file: &str) -> u32 {
     }
 
     if let Some((row, col)) = start_pos {
-        let root_node = Rc::new(RefCell::new(TreeNode::new(Pipe::StartPos, (row, col))));
-        build_tree(row, col, &input.tiles, &root_node);
+        let mut arena: Arena<Entry> = Arena::new();
+        let root_node = arena.new_node(Entry {
+            pipe: Pipe::StartPos,
+            pos: (row, col),
+        });
 
-        traverse_tree(&Some(root_node));
+        build_tree(&input.tiles, &mut arena, None, root_node);
+
+        let traverser = root_node.traverse(&arena);
+        let mut node_ids: Vec<NodeId> = vec![];
+        for ev in traverser {
+            match ev {
+                indextree::NodeEdge::Start(id) => node_ids.push(id),
+                _ => break
+            };
+        };
+        let res = node_ids.len() / 2;
+        println!("{}", res);
+        res
     } else {
         panic!("Invalid start node");
     }
-
-    0
 }
 
-fn build_tree(row: usize, col: usize, tiles: &Grid<Pipe>, parent: &Rc<RefCell<TreeNode>>) {
-    let current_pipe = parent.borrow().pipe;
-
-    /*println!(
-        "(current) row: {}, col: {}, tile: {:?}",
-        row, col, current_pipe
-    );*/
-    for i in (row - 1)..(row + 2) {
-        for j in (col - 1)..(col + 2) {
-            let next_direction = get_direction((row as i32, col as i32), (i as i32, j as i32));
-            if let Some(next_direction) = next_direction {
-                if let Some(next_pipe) = tiles.get(i, j) {
-                    if is_pipe_connected(current_pipe, *next_pipe, next_direction) && !(parent.borrow().pos == (i, j)) {
-                        println!(
-                            "(next) row: {}, col: {}, tile: {:?}, dir: {:?}",
-                            i, j, next_pipe, next_direction
-                        );
-                        if parent.borrow().left.is_some() {
-                            parent.borrow_mut().right =
-                                Some(Rc::new(RefCell::new(TreeNode::new(*next_pipe, (i, j)))));
-                            build_tree(i, j, tiles, parent.borrow_mut().right.as_ref().unwrap())
-                        } else {
-                            parent.borrow_mut().left =
-                                Some(Rc::new(RefCell::new(TreeNode::new(*next_pipe, (i, j)))));
-                            build_tree(i, j, tiles, parent.borrow_mut().left.as_ref().unwrap())
+fn build_tree(
+    tiles: &Grid<Pipe>,
+    arena: &mut Arena<Entry>,
+    maybe_prev_index: Option<NodeId>,
+    current_index: NodeId,
+) {
+    let maybe_node = arena.get_mut(current_index);
+    if let Some(current_node) = maybe_node {
+        let current_path = current_node.get().pipe;
+        let current_row: i64 = current_node.get().pos.0 as i64;
+        let current_col: i64 = current_node.get().pos.1 as i64;
+        // Loop through all the potential new nodes to check next direction
+        for test_row in (current_row - 1)..(current_row + 2) {
+            for test_col in (current_col - 1)..(current_col + 2) {
+                let maybe_direction = get_direction(
+                    (current_row as i32, current_col as i32),
+                    (test_row as i32, test_col as i32),
+                );
+                if let Some(next_direction) = maybe_direction {
+                    // Don't consider our current node, and only consider NSEW
+                    if !(current_row == test_row && current_col == test_col)
+                        && (next_direction == Direction::N
+                            || next_direction == Direction::S
+                            || next_direction == Direction::E
+                            || next_direction == Direction::W)
+                    {
+                        if let Some(next_pipe) = tiles.get(test_row, test_col) {
+                            if let Some(prev_index) = maybe_prev_index {
+                                let maybe_prev_node = arena.get(prev_index);
+                                if let Some(prev_node) = maybe_prev_node {
+                                    if prev_node.get().pos != (test_row as usize, test_col as usize)
+                                    {
+                                        if is_pipe_connected(
+                                            current_path,
+                                            *next_pipe,
+                                            next_direction,
+                                        ) {
+                                            let new_node = arena.new_node(Entry {
+                                                pipe: *next_pipe,
+                                                pos: (test_row as usize, test_col as usize),
+                                            });
+                                            current_index.append(new_node, arena);
+                                            build_tree(tiles, arena, Some(current_index), new_node)
+                                        }
+                                    }
+                                }
+                            } else {
+                                if is_pipe_connected(current_path, *next_pipe, next_direction) {
+                                    let new_node = arena.new_node(Entry {
+                                        pipe: *next_pipe,
+                                        pos: (test_row as usize, test_col as usize),
+                                    });
+                                    current_index.append(new_node, arena);
+                                    build_tree(tiles, arena, Some(current_index), new_node)
+                                }
+                            }
                         }
-                    };
-                };
-            };
+                    }
+                }
+            }
         }
     }
 }
 
-fn traverse_tree(parent: &Option<Rc<RefCell<TreeNode>>>) {
-    if let Some(node) = parent {
-        let node = node.borrow();
-
-        traverse_tree(&node.left);
-
-        println!("{:?}", node);
-
-        traverse_tree(&node.right);
-    }
-}
-
 fn is_pipe_connected(current_pipe: Pipe, next_pipe: Pipe, next_direction: Direction) -> bool {
+    fn is_north_pipe(next_pipe: Pipe) -> bool {
+        match next_pipe {
+            Pipe::VerticalNS | Pipe::SW90Deg7Sym | Pipe::SE90DegFSym => true,
+            _ => false,
+        }
+    }
+    fn is_south_pipe(next_pipe: Pipe) -> bool {
+        match next_pipe {
+            Pipe::VerticalNS | Pipe::NE90DegLSym | Pipe::NW90DegJSym => true,
+            _ => false,
+        }
+    }
+    fn is_east_pipe(next_pipe: Pipe) -> bool {
+        match next_pipe {
+            Pipe::HorizontalEW | Pipe::NW90DegJSym | Pipe::SW90Deg7Sym => true,
+            _ => false,
+        }
+    }
+    fn is_west_pipe(next_pipe: Pipe) -> bool {
+        match next_pipe {
+            Pipe::HorizontalEW | Pipe::NE90DegLSym | Pipe::SE90DegFSym => true,
+            _ => false,
+        }
+    }
     match current_pipe {
         Pipe::Ground => false,
         Pipe::VerticalNS => match next_direction {
-            Direction::N => match next_pipe {
-                Pipe::Ground => false,
-                Pipe::VerticalNS => true,
-                Pipe::HorizontalEW => false,
-                Pipe::NE90Deg => false,
-                Pipe::NW90Deg => false,
-                Pipe::SW90Deg => true,
-                Pipe::SE90Deg => true,
-                Pipe::StartPos => false,
-            },
-            Direction::S => match next_pipe {
-                Pipe::Ground => false,
-                Pipe::VerticalNS => true,
-                Pipe::HorizontalEW => false,
-                Pipe::NE90Deg => true,
-                Pipe::NW90Deg => true,
-                Pipe::SW90Deg => false,
-                Pipe::SE90Deg => false,
-                Pipe::StartPos => false,
-            },
+            Direction::N => is_north_pipe(next_pipe),
+            Direction::S => is_south_pipe(next_pipe),
             _ => false,
         },
         Pipe::HorizontalEW => match next_direction {
-            Direction::E => match next_pipe {
-                Pipe::Ground => false,
-                Pipe::VerticalNS => false,
-                Pipe::HorizontalEW => true,
-                Pipe::NE90Deg => false,
-                Pipe::NW90Deg => true,
-                Pipe::SW90Deg => true,
-                Pipe::SE90Deg => false,
-                Pipe::StartPos => false,
-            },
-            Direction::W => match next_pipe {
-                Pipe::Ground => false,
-                Pipe::VerticalNS => false,
-                Pipe::HorizontalEW => true,
-                Pipe::NE90Deg => true,
-                Pipe::NW90Deg => false,
-                Pipe::SW90Deg => false,
-                Pipe::SE90Deg => true,
-                Pipe::StartPos => false,
-            },
+            Direction::E => is_east_pipe(next_pipe),
+            Direction::W => is_west_pipe(next_pipe),
             _ => false,
         },
-        Pipe::NE90Deg => match next_direction {
-            Direction::N => match next_pipe {
-                Pipe::Ground => false,
-                Pipe::VerticalNS => true,
-                Pipe::HorizontalEW => false,
-                Pipe::NE90Deg => false,
-                Pipe::NW90Deg => false,
-                Pipe::SW90Deg => true,
-                Pipe::SE90Deg => true,
-                Pipe::StartPos => false,
-            },
-            Direction::E => match next_pipe {
-                Pipe::Ground => false,
-                Pipe::VerticalNS => false,
-                Pipe::HorizontalEW => true,
-                Pipe::NE90Deg => false,
-                Pipe::NW90Deg => true,
-                Pipe::SW90Deg => true,
-                Pipe::SE90Deg => false,
-                Pipe::StartPos => false,
-            },
+        Pipe::NE90DegLSym => match next_direction {
+            Direction::N => is_north_pipe(next_pipe),
+            Direction::E => is_east_pipe(next_pipe),
             _ => false,
         },
-        Pipe::NW90Deg => match next_direction {
-            Direction::N => match next_pipe {
-                Pipe::Ground => false,
-                Pipe::VerticalNS => true,
-                Pipe::HorizontalEW => false,
-                Pipe::NE90Deg => false,
-                Pipe::NW90Deg => true,
-                Pipe::SW90Deg => true,
-                Pipe::SE90Deg => false,
-                Pipe::StartPos => false,
-            },
-            Direction::W => match next_pipe {
-                Pipe::Ground => false,
-                Pipe::VerticalNS => false,
-                Pipe::HorizontalEW => true,
-                Pipe::NE90Deg => true,
-                Pipe::NW90Deg => false,
-                Pipe::SW90Deg => false,
-                Pipe::SE90Deg => true,
-                Pipe::StartPos => false,
-            },
+        Pipe::NW90DegJSym => match next_direction {
+            Direction::N => is_north_pipe(next_pipe),
+            Direction::W => is_west_pipe(next_pipe),
             _ => false,
         },
-        Pipe::SW90Deg => match next_direction {
-            Direction::S => match next_pipe {
-                Pipe::Ground => false,
-                Pipe::VerticalNS => true,
-                Pipe::HorizontalEW => false,
-                Pipe::NE90Deg => true,
-                Pipe::NW90Deg => true,
-                Pipe::SW90Deg => false,
-                Pipe::SE90Deg => false,
-                Pipe::StartPos => false,
-            },
-            Direction::W => match next_pipe {
-                Pipe::Ground => false,
-                Pipe::VerticalNS => false,
-                Pipe::HorizontalEW => true,
-                Pipe::NE90Deg => true,
-                Pipe::NW90Deg => false,
-                Pipe::SW90Deg => false,
-                Pipe::SE90Deg => true,
-                Pipe::StartPos => false,
-            },
+        Pipe::SW90Deg7Sym => match next_direction {
+            Direction::S => is_south_pipe(next_pipe),
+            Direction::W => is_west_pipe(next_pipe),
             _ => false,
         },
-        Pipe::SE90Deg => match next_direction {
-            Direction::E => match next_pipe {
-                Pipe::Ground => false,
-                Pipe::VerticalNS => false,
-                Pipe::HorizontalEW => true,
-                Pipe::NE90Deg => false,
-                Pipe::NW90Deg => true,
-                Pipe::SW90Deg => true,
-                Pipe::SE90Deg => false,
-                Pipe::StartPos => false,
-            },
-            Direction::S => match next_pipe {
-                Pipe::Ground => false,
-                Pipe::VerticalNS => true,
-                Pipe::HorizontalEW => false,
-                Pipe::NE90Deg => true,
-                Pipe::NW90Deg => true,
-                Pipe::SW90Deg => false,
-                Pipe::SE90Deg => false,
-                Pipe::StartPos => false,
-            },
+        Pipe::SE90DegFSym => match next_direction {
+            Direction::E => is_east_pipe(next_pipe),
+            Direction::S => is_south_pipe(next_pipe),
             _ => false,
         },
         Pipe::StartPos => match next_direction {
-            Direction::N => match next_pipe {
-                Pipe::Ground => false,
-                Pipe::VerticalNS => true,
-                Pipe::HorizontalEW => false,
-                Pipe::NE90Deg => false,
-                Pipe::NW90Deg => false,
-                Pipe::SW90Deg => true,
-                Pipe::SE90Deg => true,
-                Pipe::StartPos => false,
-            },
-            Direction::E => match next_pipe {
-                Pipe::Ground => false,
-                Pipe::VerticalNS => false,
-                Pipe::HorizontalEW => true,
-                Pipe::NE90Deg => false,
-                Pipe::NW90Deg => true,
-                Pipe::SW90Deg => true,
-                Pipe::SE90Deg => false,
-                Pipe::StartPos => false,
-            },
-            Direction::S => match next_pipe {
-                Pipe::Ground => false,
-                Pipe::VerticalNS => true,
-                Pipe::HorizontalEW => false,
-                Pipe::NE90Deg => true,
-                Pipe::NW90Deg => true,
-                Pipe::SW90Deg => false,
-                Pipe::SE90Deg => false,
-                Pipe::StartPos => false,
-            },
-            Direction::W => match next_pipe {
-                Pipe::Ground => false,
-                Pipe::VerticalNS => false,
-                Pipe::HorizontalEW => true,
-                Pipe::NE90Deg => true,
-                Pipe::NW90Deg => false,
-                Pipe::SW90Deg => false,
-                Pipe::SE90Deg => true,
-                Pipe::StartPos => false,
-            },
+            Direction::N => is_north_pipe(next_pipe),
+            Direction::E => is_east_pipe(next_pipe),
+            Direction::S => is_south_pipe(next_pipe),
+            Direction::W => is_west_pipe(next_pipe),
         },
     }
 }
@@ -381,6 +278,6 @@ mod tests {
 
     #[test]
     fn test_get_farthest_steps() {
-        assert_eq!(0, get_farthest_steps("input/day10.txt"));
+        assert_eq!(6823, get_farthest_steps("input/day10.txt"));
     }
 }

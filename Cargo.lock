@@ -16,6 +16,7 @@ name = "aoc2023"
 version = "0.1.0"
 dependencies = [
  "grid",
+ "indextree",
  "itertools",
  "lazy_static",
  "multimap",
@@ -79,6 +80,12 @@ name = "grid"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d196ffc1627db18a531359249b2bf8416178d84b729f3cebeb278f285fb9b58c"
+
+[[package]]
+name = "indextree"
+version = "4.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c40411d0e5c63ef1323c3d09ce5ec6d84d71531e18daed0743fccea279d7deb6"
 
 [[package]]
 name = "itertools"
