@@ -298,82 +298,22 @@ fn get_enclosed_by_loop(input_file: &str) -> usize {
 
         let cleaned_tiles = clean_tiles(&input.tiles, &arena, &root_node);
 
-        let mut even_odd_tiles: Grid<Pipe> = cleaned_tiles.clone();
-
-        for ((row, col), pipe) in cleaned_tiles.indexed_iter() {
-            if *pipe == Pipe::Ground {
-                // We are at an edge
-                if row == 0
-                    || col == 0
-                    || row == cleaned_tiles.rows() - 1
-                    || col == cleaned_tiles.cols() - 1
-                {
-                    even_odd_tiles[(row, col)] = Pipe::Outside
-                } else {
-                    let north_count = path_trace(&cleaned_tiles, (0..row).rev().into_iter(), col, Direction::N);
-                    let south_count = path_trace(&cleaned_tiles, (row + 1..cleaned_tiles.rows()).into_iter(), col, Direction::S);
-                    let east_count = path_trace(&cleaned_tiles, (col + 1..cleaned_tiles.cols()).into_iter(), row, Direction::E);
-                    let west_count = path_trace(&cleaned_tiles, (0..col).rev().into_iter(), row, Direction::W);
-                    println!("Row: {}, Col: {}", row, col);
-                    println!("North Count: {}", north_count);
-                    println!("South Count: {}", south_count);
-                    println!("East Count: {}", east_count);
-                    println!("West Count: {}", west_count);
-
-                    if (north_count % 2) > 0
-                        || (south_count % 2) > 0
-                        || (east_count % 2) > 0
-                        || (west_count % 2) > 0
-                    {
-                        even_odd_tiles[(row, col)] = Pipe::Inside;
-                    }
-                    else {
-                        even_odd_tiles[(row, col)] = Pipe::Outside;
-                    }
+        // Insipired/shamelessly ripped off from https://nickymeuleman.netlify.app/garden/aoc2023-day10#final-code
+        let mut inside = false;
+        cleaned_tiles
+            .flatten()
+            .into_iter()
+            .filter(|tile| match tile {
+                Pipe::Ground => inside,
+                Pipe::VerticalNS | Pipe::NW90DegJSym | Pipe::NE90DegLSym => {
+                    inside = !inside;
+                    false
                 }
-            }
-        }
-
-        print_tiles(&even_odd_tiles);
-
-        let mut inside_count = 0;
-        for ((_row, _col), pipe) in even_odd_tiles.indexed_iter() {
-            if *pipe == Pipe::Inside {
-                inside_count += 1;
-            }
-        }
-
-        inside_count
+                _ => false,
+            })
+            .count()
     } else {
         panic!("Invalid start node");
-    }
-}
-
-fn path_trace<T: std::iter::Iterator>(tiles: &Grid<Pipe>, range: T, axis: usize, dir: Direction) -> usize where usize: From<<T as Iterator>::Item> {
-    let mut count = 0;
-    for i in range {
-        let maybe_current_tile: Option<&Pipe> = match dir {
-            Direction::N | Direction::S => tiles.get(i, axis),
-            Direction::E | Direction::W => tiles.get(axis, i),
-        };
-        if let Some(current_tile) = maybe_current_tile {
-            if is_path_segment(*current_tile) {
-                count += 1;
-            }
-        }
-    }
-    count
-}
-
-fn is_path_segment(current_tile: Pipe) -> bool {
-    match current_tile {
-        Pipe::VerticalNS => true,
-        Pipe::HorizontalEW => true,
-        Pipe::NE90DegLSym => true,
-        Pipe::NW90DegJSym => true,
-        Pipe::SW90Deg7Sym => true,
-        Pipe::SE90DegFSym => true,
-        _ => false,
     }
 }
 
@@ -476,7 +416,7 @@ mod tests {
 
     #[test]
     fn test_get_enclosed_by_loop_test02() {
-        assert_eq!(0, get_enclosed_by_loop("input/day10_test02.txt"));
+        assert_eq!(1, get_enclosed_by_loop("input/day10_test02.txt"));
     }
 
     #[test]
@@ -486,12 +426,12 @@ mod tests {
 
     #[test]
     fn test_get_enclosed_by_loop_test04() {
-        assert_eq!(8, get_enclosed_by_loop("input/day10_test04.txt"));
+        assert_eq!(4, get_enclosed_by_loop("input/day10_test04.txt"));
     }
 
     #[test]
     fn test_get_enclosed_by_loop_test05() {
-        assert_eq!(10, get_enclosed_by_loop("input/day10_test05.txt"));
+        assert_eq!(8, get_enclosed_by_loop("input/day10_test05.txt"));
     }
 
     #[test]
@@ -503,14 +443,34 @@ mod tests {
     fn test_get_enclosed_by_loop_test07() {
         assert_eq!(4, get_enclosed_by_loop("input/day10_test07.txt"));
     }
-    
+
     #[test]
     fn test_get_enclosed_by_loop_test08() {
         assert_eq!(4, get_enclosed_by_loop("input/day10_test08.txt"));
     }
 
     #[test]
+    fn test_get_enclosed_by_loop_test09() {
+        assert_eq!(4, get_enclosed_by_loop("input/day10_test09.txt"));
+    }
+
+    #[test]
+    fn test_get_enclosed_by_loop_test10() {
+        assert_eq!(4, get_enclosed_by_loop("input/day10_test10.txt"));
+    }
+
+    #[test]
+    fn test_get_enclosed_by_loop_test11() {
+        assert_eq!(4, get_enclosed_by_loop("input/day10_test11.txt"));
+    }
+
+    #[test]
+    fn test_get_enclosed_by_loop_test12() {
+        assert_eq!(4, get_enclosed_by_loop("input/day10_test12.txt"));
+    }
+
+    #[test]
     fn test_get_enclosed_by_loop_steps() {
-        assert_eq!(0, get_enclosed_by_loop("input/day10.txt"));
+        assert_eq!(415, get_enclosed_by_loop("input/day10.txt"));
     }
 }
