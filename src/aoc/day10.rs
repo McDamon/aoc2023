@@ -1,11 +1,13 @@
 // https://adventofcode.com/2023/day/10
 
+use enum_iterator::Sequence;
 use grid::Grid;
-use indextree::{Arena, NodeId};
+use indextree::{Arena, NodeEdge, NodeId};
+use itertools::Itertools;
 
 use super::utils::get_lines;
 
-#[derive(Debug, Default, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, Default, PartialEq, Eq, Copy, Clone, Sequence)]
 #[repr(u8)]
 enum Pipe {
     #[default]
@@ -17,6 +19,8 @@ enum Pipe {
     SW90Deg7Sym = b'7',
     SE90DegFSym = b'F',
     StartPos = b'S',
+    Inside = b'1',
+    Outside = b'0',
 }
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -40,6 +44,8 @@ impl TryFrom<u8> for Pipe {
             x if x == Pipe::SW90Deg7Sym as u8 => Ok(Pipe::SW90Deg7Sym),
             x if x == Pipe::SE90DegFSym as u8 => Ok(Pipe::SE90DegFSym),
             x if x == Pipe::StartPos as u8 => Ok(Pipe::StartPos),
+            x if x == Pipe::Inside as u8 => Ok(Pipe::Inside),
+            x if x == Pipe::Outside as u8 => Ok(Pipe::Outside),
             _ => Err(()),
         }
     }
@@ -79,6 +85,7 @@ fn parse_tiles(tiles_lines: Vec<String>) -> Grid<Pipe> {
 struct Entry {
     pipe: Pipe,
     pos: (usize, usize),
+    direction: Option<Direction>,
 }
 
 fn get_farthest_steps(input_file: &str) -> usize {
@@ -96,6 +103,7 @@ fn get_farthest_steps(input_file: &str) -> usize {
         let root_node = arena.new_node(Entry {
             pipe: Pipe::StartPos,
             pos: (row, col),
+            direction: None,
         });
 
         build_tree(&input.tiles, &mut arena, None, root_node);
@@ -105,9 +113,9 @@ fn get_farthest_steps(input_file: &str) -> usize {
         for ev in traverser {
             match ev {
                 indextree::NodeEdge::Start(id) => node_ids.push(id),
-                _ => break
+                _ => break,
             };
-        };
+        }
         let res = node_ids.len() / 2;
         println!("{}", res);
         res
@@ -156,6 +164,7 @@ fn build_tree(
                                             let new_node = arena.new_node(Entry {
                                                 pipe: *next_pipe,
                                                 pos: (test_row as usize, test_col as usize),
+                                                direction: Some(next_direction),
                                             });
                                             current_index.append(new_node, arena);
                                             build_tree(tiles, arena, Some(current_index), new_node)
@@ -167,6 +176,7 @@ fn build_tree(
                                     let new_node = arena.new_node(Entry {
                                         pipe: *next_pipe,
                                         pos: (test_row as usize, test_col as usize),
+                                        direction: Some(next_direction),
                                     });
                                     current_index.append(new_node, arena);
                                     build_tree(tiles, arena, Some(current_index), new_node)
@@ -243,6 +253,7 @@ fn is_pipe_connected(current_pipe: Pipe, next_pipe: Pipe, next_direction: Direct
             Direction::S => is_south_pipe(next_pipe),
             Direction::W => is_west_pipe(next_pipe),
         },
+        _ => false,
     }
 }
 
@@ -262,6 +273,183 @@ fn get_direction(
     None
 }
 
+fn get_enclosed_by_loop(input_file: &str) -> usize {
+    let input = parse_input(input_file);
+
+    let mut start_pos: Option<(usize, usize)> = None;
+    for ((row, col), pipe) in input.tiles.indexed_iter() {
+        if *pipe == Pipe::StartPos {
+            start_pos = Some((row, col));
+        }
+    }
+
+    if let Some((row, col)) = start_pos {
+        let mut arena: Arena<Entry> = Arena::new();
+        let root_node = arena.new_node(Entry {
+            pipe: Pipe::StartPos,
+            pos: (row, col),
+            direction: None,
+        });
+
+        build_tree(&input.tiles, &mut arena, None, root_node);
+
+        //let printable = root_node.debug_pretty_print(&arena);
+        //println!("{:?}", printable);
+
+        let cleaned_tiles = clean_tiles(&input.tiles, &arena, &root_node);
+
+        let mut even_odd_tiles: Grid<Pipe> = cleaned_tiles.clone();
+
+        for ((row, col), pipe) in cleaned_tiles.indexed_iter() {
+            if *pipe == Pipe::Ground {
+                // We are at an edge
+                if row == 0
+                    || col == 0
+                    || row == cleaned_tiles.rows() - 1
+                    || col == cleaned_tiles.cols() - 1
+                {
+                    even_odd_tiles[(row, col)] = Pipe::Outside
+                } else {
+                    let north_count = path_trace(&cleaned_tiles, (0..row).rev().into_iter(), col, Direction::N);
+                    let south_count = path_trace(&cleaned_tiles, (row + 1..cleaned_tiles.rows()).into_iter(), col, Direction::S);
+                    let east_count = path_trace(&cleaned_tiles, (col + 1..cleaned_tiles.cols()).into_iter(), row, Direction::E);
+                    let west_count = path_trace(&cleaned_tiles, (0..col).rev().into_iter(), row, Direction::W);
+                    println!("Row: {}, Col: {}", row, col);
+                    println!("North Count: {}", north_count);
+                    println!("South Count: {}", south_count);
+                    println!("East Count: {}", east_count);
+                    println!("West Count: {}", west_count);
+
+                    if (north_count % 2) > 0
+                        || (south_count % 2) > 0
+                        || (east_count % 2) > 0
+                        || (west_count % 2) > 0
+                    {
+                        even_odd_tiles[(row, col)] = Pipe::Inside;
+                    }
+                    else {
+                        even_odd_tiles[(row, col)] = Pipe::Outside;
+                    }
+                }
+            }
+        }
+
+        print_tiles(&even_odd_tiles);
+
+        let mut inside_count = 0;
+        for ((_row, _col), pipe) in even_odd_tiles.indexed_iter() {
+            if *pipe == Pipe::Inside {
+                inside_count += 1;
+            }
+        }
+
+        inside_count
+    } else {
+        panic!("Invalid start node");
+    }
+}
+
+fn path_trace<T: std::iter::Iterator>(tiles: &Grid<Pipe>, range: T, axis: usize, dir: Direction) -> usize where usize: From<<T as Iterator>::Item> {
+    let mut count = 0;
+    for i in range {
+        let maybe_current_tile: Option<&Pipe> = match dir {
+            Direction::N | Direction::S => tiles.get(i, axis),
+            Direction::E | Direction::W => tiles.get(axis, i),
+        };
+        if let Some(current_tile) = maybe_current_tile {
+            if is_path_segment(*current_tile) {
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
+fn is_path_segment(current_tile: Pipe) -> bool {
+    match current_tile {
+        Pipe::VerticalNS => true,
+        Pipe::HorizontalEW => true,
+        Pipe::NE90DegLSym => true,
+        Pipe::NW90DegJSym => true,
+        Pipe::SW90Deg7Sym => true,
+        Pipe::SE90DegFSym => true,
+        _ => false,
+    }
+}
+
+fn print_tiles(tiles: &Grid<Pipe>) {
+    for tile_row in tiles.iter_rows() {
+        for tile in tile_row {
+            print!("{:#}", *tile as u8 as char);
+        }
+        print!("\n");
+    }
+}
+
+fn clean_tiles(tiles: &Grid<Pipe>, arena: &Arena<Entry>, root_node: &NodeId) -> Grid<Pipe> {
+    let mut cleaned_tiles: Grid<Pipe> = Grid::new(tiles.rows(), tiles.cols());
+    for (pos, pipe) in tiles.indexed_iter() {
+        if *pipe == Pipe::StartPos {
+            cleaned_tiles[pos] = clean_start_tile(arena, root_node);
+        } else {
+            cleaned_tiles[pos] = clean_tile(arena, root_node, pos);
+        }
+    }
+    cleaned_tiles
+}
+
+fn clean_start_tile(arena: &Arena<Entry>, root_node: &NodeId) -> Pipe {
+    let start_edge_tiles: Vec<NodeId> = root_node.children(&arena).collect_vec();
+    let mut start_edge_nodes: Vec<Entry> = vec![];
+    for edge_tile in start_edge_tiles {
+        start_edge_nodes.push(*arena[edge_tile].get());
+    }
+    let count_north = start_edge_nodes
+        .iter()
+        .filter(|&t| t.direction.unwrap() == Direction::N)
+        .count();
+    let count_south = start_edge_nodes
+        .iter()
+        .filter(|&t| t.direction.unwrap() == Direction::S)
+        .count();
+    let count_east = start_edge_nodes
+        .iter()
+        .filter(|&t| t.direction.unwrap() == Direction::E)
+        .count();
+    let count_west = start_edge_nodes
+        .iter()
+        .filter(|&t| t.direction.unwrap() == Direction::W)
+        .count();
+
+    if count_north == 1 && count_west == 1 {
+        return Pipe::NW90DegJSym;
+    } else if count_north == 1 && count_east == 1 {
+        return Pipe::NE90DegLSym;
+    } else if count_south == 1 && count_west == 1 {
+        return Pipe::SW90Deg7Sym;
+    } else if count_south == 1 && count_east == 1 {
+        return Pipe::SE90DegFSym;
+    }
+    Pipe::Ground
+}
+
+fn clean_tile(arena: &Arena<Entry>, root_node: &NodeId, pos: (usize, usize)) -> Pipe {
+    let mut maybe_next = Some(NodeEdge::Start(*root_node));
+    while let Some(current) = maybe_next {
+        maybe_next = current.next_traverse(&arena);
+        let current = match current {
+            NodeEdge::Start(id) => id,
+            NodeEdge::End(_) => break,
+        };
+
+        let tile = arena[current].get();
+        if pos == tile.pos {
+            return tile.pipe;
+        }
+    }
+    Pipe::Ground
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -279,5 +467,50 @@ mod tests {
     #[test]
     fn test_get_farthest_steps() {
         assert_eq!(6823, get_farthest_steps("input/day10.txt"));
+    }
+
+    #[test]
+    fn test_get_enclosed_by_loop_test01() {
+        assert_eq!(1, get_enclosed_by_loop("input/day10_test01.txt"));
+    }
+
+    #[test]
+    fn test_get_enclosed_by_loop_test02() {
+        assert_eq!(0, get_enclosed_by_loop("input/day10_test02.txt"));
+    }
+
+    #[test]
+    fn test_get_enclosed_by_loop_test03() {
+        assert_eq!(4, get_enclosed_by_loop("input/day10_test03.txt"));
+    }
+
+    #[test]
+    fn test_get_enclosed_by_loop_test04() {
+        assert_eq!(8, get_enclosed_by_loop("input/day10_test04.txt"));
+    }
+
+    #[test]
+    fn test_get_enclosed_by_loop_test05() {
+        assert_eq!(10, get_enclosed_by_loop("input/day10_test05.txt"));
+    }
+
+    #[test]
+    fn test_get_enclosed_by_loop_test06() {
+        assert_eq!(10, get_enclosed_by_loop("input/day10_test06.txt"));
+    }
+
+    #[test]
+    fn test_get_enclosed_by_loop_test07() {
+        assert_eq!(4, get_enclosed_by_loop("input/day10_test07.txt"));
+    }
+    
+    #[test]
+    fn test_get_enclosed_by_loop_test08() {
+        assert_eq!(4, get_enclosed_by_loop("input/day10_test08.txt"));
+    }
+
+    #[test]
+    fn test_get_enclosed_by_loop_steps() {
+        assert_eq!(0, get_enclosed_by_loop("input/day10.txt"));
     }
 }
