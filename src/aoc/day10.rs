@@ -295,7 +295,8 @@ fn get_enclosed_by_loop(input_file: &str) -> usize {
 
         let cleaned_tiles = clean_tiles(&input.tiles, &arena, &root_node);
 
-        // Insipired/shamelessly ripped off from https://nickymeuleman.netlify.app/garden/aoc2023-day10#final-code
+        // Was stumped by the squeezing between pipes (my initial raycasting approach using even-odd failed)
+        // Inspired by and/or shamelessly ripped off from https://nickymeuleman.netlify.app/garden/aoc2023-day10#final-code
         let mut inside = false;
         cleaned_tiles
             .flatten()
