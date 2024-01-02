@@ -293,9 +293,6 @@ fn get_enclosed_by_loop(input_file: &str) -> usize {
 
         build_tree(&input.tiles, &mut arena, None, root_node);
 
-        //let printable = root_node.debug_pretty_print(&arena);
-        //println!("{:?}", printable);
-
         let cleaned_tiles = clean_tiles(&input.tiles, &arena, &root_node);
 
         // Insipired/shamelessly ripped off from https://nickymeuleman.netlify.app/garden/aoc2023-day10#final-code
